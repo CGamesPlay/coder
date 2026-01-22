@@ -30,13 +30,21 @@ func (lp *osListeningPortsGetter) GetListeningPorts() ([]codersdk.WorkspaceAgent
 		return ports, nil
 	}
 
-	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+	listenFn := func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Listen
-	})
-	if err != nil {
-		return nil, xerrors.Errorf("scan listening ports: %w", err)
 	}
 
+	tabs4, err := netstat.TCPSocks(listenFn)
+	if err != nil {
+		return nil, xerrors.Errorf("scan listening IPv4 ports: %w", err)
+	}
+
+	tabs6, err := netstat.TCP6Socks(listenFn)
+	if err != nil {
+		return nil, xerrors.Errorf("scan listening IPv6 ports: %w", err)
+	}
+
+	tabs := append(tabs4, tabs6...)
 	seen := make(map[uint16]struct{}, len(tabs))
 	ports := []codersdk.WorkspaceAgentListeningPort{}
 	for _, tab := range tabs {
